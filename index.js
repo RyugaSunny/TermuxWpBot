@@ -2,16 +2,8 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, download
 const { Boom } = require('@hapi/boom');
 const P = require('pino');
 const qrcode = require('qrcode');
-const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-ffmpeg.setFfmpegPath(ffmpegPath);
-
-// Log FFmpeg version for debugging
-require('child_process').exec(`${ffmpegPath} -version`, (err, stdout) => {
-    if (err) console.error('\x1b[31m✖ FFmpeg not found or errored:', err, '\x1b[0m');
-    else console.log('\x1b[36mℹ FFmpeg version:', stdout.split('\n')[0], '\x1b[0m');
-});
+const fs = require('fs'); // Added for file operations
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
@@ -71,32 +63,26 @@ async function startBot() {
 
                     let stickerBuffer;
                     const isAnimated = hasVideo && (msg.message.videoMessage?.mimetype.includes('gif') || msg.message.videoMessage?.mimetype.includes('video') || msg.message.videoMessage?.gifPlayback);
-                    if (isAnimated) {
-                        const outputPath = `./temp-sticker-${Date.now()}.webp`;
-                        stickerBuffer = await new Promise((resolve, reject) => {
-                            const inputStream = require('stream').Readable.from(buffer);
-                            ffmpeg(inputStream)
-                                .size('512x512')
-                                .outputOptions([
-                                    '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:0x00000000',
-                                    '-loop', '0',
-                                    '-c:v', 'webp',
-                                    '-q:v', '20',
-                                    '-b:v', '200k',
-                                    '-pix_fmt', 'yuva420p'
-                                ])
-                                .toFormat('webp')
-                                .on('end', () => resolve(require('fs').readFileSync(outputPath)))
-                                .on('error', (err) => reject(err))
-                                .save(outputPath);
-                        });
-                        require('fs').unlinkSync(outputPath);
-                    } else {
-                        stickerBuffer = await sharp(buffer)
-                            .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-                            .webp({ quality: 80 })
-                            .toBuffer();
-                    }
+                    const outputPath = `./temp-sticker-${Date.now()}.webp`;
+
+                    stickerBuffer = await new Promise((resolve, reject) => {
+                        const inputStream = require('stream').Readable.from(buffer);
+                        ffmpeg(inputStream)
+                            .size('512x512')
+                            .outputOptions([
+                                '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:0x00000000', // Transparent background
+                                ...(isAnimated ? ['-loop', '0'] : ['-frames:v', '1']), // Loop for animations, single frame for images
+                                '-c:v', 'webp',
+                                '-q:v', '20',
+                                '-b:v', '200k',
+                                '-pix_fmt', 'yuva420p'
+                            ])
+                            .toFormat('webp')
+                            .on('end', () => resolve(fs.readFileSync(outputPath)))
+                            .on('error', (err) => reject(err))
+                            .save(outputPath);
+                    });
+                    fs.unlinkSync(outputPath);
 
                     console.log(`\x1b[36mℹ Sticker processed - New buffer size: ${(stickerBuffer.length / 1024).toFixed(2)} KB\x1b[0m`);
                     if (stickerBuffer.length > 1153434) { // 1.1MB in bytes

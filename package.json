@@ -15,9 +15,17 @@
     "fluent-ffmpeg": "^2.1.3",
     "pino": "^9.6.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0",
-    "sharp": "^0.32.6"
+    "qrcode-terminal": "^0.12.0"
+
   },
   "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyugaSunny/TermuxWpBot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RyugaSunny/TermuxWpBot/issues"
+  },
+  "homepage": "https://github.com/RyugaSunny/TermuxWpBot#readme",
   "description": ""
 }
