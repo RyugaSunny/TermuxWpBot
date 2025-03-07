@@ -55,26 +55,25 @@ async function startBot() {
         if (text === '.sticker' || text === '.s') {
             const hasImage = msg.message.imageMessage || (msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage);
             const hasVideo = msg.message.videoMessage || (msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage);
-
+        
             if (hasImage || hasVideo) {
                 try {
                     console.log(`\x1b[36m🔄 Converting media to sticker for ${sender}...\x1b[0m`);
                     const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: P({ level: 'silent' }) });
-
+        
                     let stickerBuffer;
                     const isAnimated = hasVideo && (msg.message.videoMessage?.mimetype.includes('gif') || msg.message.videoMessage?.mimetype.includes('video') || msg.message.videoMessage?.gifPlayback);
                     const outputPath = `./temp-sticker-${Date.now()}.webp`;
-
+        
                     stickerBuffer = await new Promise((resolve, reject) => {
                         const inputStream = require('stream').Readable.from(buffer);
                         ffmpeg(inputStream)
                             .size('512x512')
                             .outputOptions([
-                                '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:0x00000000', // Transparent background
-                                ...(isAnimated ? ['-loop', '0'] : ['-frames:v', '1']), // Loop for animations, single frame for images
+                                '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:0x00000000',
+                                ...(isAnimated ? ['-loop', '0', '-r', '15'] : ['-frames:v', '1', '-lossless', '1']), // Lossless for images, smooth FPS for animations
                                 '-c:v', 'webp',
-                                '-q:v', '10',
-                                '-b:v', '350k',
+                                ...(isAnimated ? ['-b:v', '500k'] : []), // High bitrate for animations only
                                 '-pix_fmt', 'yuva420p'
                             ])
                             .toFormat('webp')
@@ -83,7 +82,7 @@ async function startBot() {
                             .save(outputPath);
                     });
                     fs.unlinkSync(outputPath);
-
+        
                     console.log(`\x1b[36mℹ Sticker processed - New buffer size: ${(stickerBuffer.length / 1024).toFixed(2)} KB\x1b[0m`);
                     if (stickerBuffer.length > 1153434) { // 1.1MB in bytes
                         const sizeInKB = (stickerBuffer.length / 1024).toFixed(2);
@@ -93,7 +92,7 @@ async function startBot() {
                         console.log(`\x1b[33m📤 Size Error Sent - To: ${sender} | Content: "File too large! Sticker must be under 1MB and yours is ${sizeInKB}KB."\x1b[0m`);
                         return;
                     }
-
+        
                     await sock.sendMessage(msg.key.remoteJid, {
                         sticker: stickerBuffer,
                         mimetype: 'image/webp',
