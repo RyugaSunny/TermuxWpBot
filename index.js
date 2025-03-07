@@ -73,8 +73,8 @@ async function startBot() {
                                 '-vf scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:0x00000000', // Transparent background
                                 ...(isAnimated ? ['-loop', '0'] : ['-frames:v', '1']), // Loop for animations, single frame for images
                                 '-c:v', 'webp',
-                                '-q:v', '20',
-                                '-b:v', '200k',
+                                '-q:v', '10',
+                                '-b:v', '350k',
                                 '-pix_fmt', 'yuva420p'
                             ])
                             .toFormat('webp')
